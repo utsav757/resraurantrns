@@ -14,10 +14,15 @@ export default function StaffManagement() {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase
-        .from('user_roles')
-        .select('user_id, role, profile:profiles!user_roles_user_id_fkey(full_name)')
-      setStaff((data as any) ?? []);
+      const { data: roles } = await supabase.from('user_roles').select('user_id, role');
+      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name');
+      const profileMap = new Map((profiles ?? []).map(p => [p.user_id, p.full_name]));
+      const result = (roles ?? []).map(r => ({
+        user_id: r.user_id,
+        role: r.role,
+        profile: { full_name: profileMap.get(r.user_id) ?? '' },
+      }));
+      setStaff(result as any);
     };
     load();
   }, []);
