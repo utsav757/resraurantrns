@@ -10,8 +10,9 @@ interface Order {
   status: string;
   total_price: number;
   created_at: string;
+  staff_id: string;
   restaurant_tables: { table_number: number } | null;
-  profiles: { full_name: string } | null;
+  staff_name?: string;
 }
 
 export default function OrderOverview() {
@@ -19,11 +20,14 @@ export default function OrderOverview() {
   const { toast } = useToast();
 
   const load = async () => {
-    const { data } = await supabase
+    const { data: rawOrders } = await supabase
       .from('orders')
-      .select('*, restaurant_tables(table_number), profiles:staff_id(full_name)')
+      .select('*, restaurant_tables(table_number)')
       .order('created_at', { ascending: false });
-    setOrders((data as any) ?? []);
+    const { data: profiles } = await supabase.from('profiles').select('user_id, full_name');
+    const profileMap = new Map((profiles ?? []).map(p => [p.user_id, p.full_name]));
+    const enriched = (rawOrders ?? []).map((o: any) => ({ ...o, staff_name: profileMap.get(o.staff_id) ?? '' }));
+    setOrders(enriched);
   };
 
   useEffect(() => { load(); }, []);
@@ -50,7 +54,7 @@ export default function OrderOverview() {
                 </div>
                 <p className="text-sm text-muted-foreground">
                   ${o.total_price.toFixed(2)} · {new Date(o.created_at).toLocaleString()}
-                  {o.profiles?.full_name && ` · by ${o.profiles.full_name}`}
+                  {o.staff_name && ` · by ${o.staff_name}`}
                 </p>
               </div>
               <Select value={o.status} onValueChange={v => updateStatus(o.id, v)}>
